@@ -7,6 +7,7 @@ from numpy import sin, cos, pi
 import numpy as np
 import cv2
 
+from image_processor import ImageProcessor
 # ---------------------------------------
 # ----------СВЯЗЬ С sim-----------------
 # ---------------------------------------
@@ -192,7 +193,7 @@ class State6(smach.State): # вернуться в начальное полож
         return 'outcome6'
 
 # Получает RGB-изображение с камеры
-def get_image(cam_handle):
+def get_image(cam_handle, clientID):
     errorCode,resolution,image=sim.simxGetVisionSensorImage(clientID,cam_handle,0,sim.simx_opmode_streaming)
     if len(image) > 0:
         image = np.array(image,dtype=np.dtype('uint8'))

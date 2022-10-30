@@ -28,6 +28,7 @@ pip install scipy
 
 Ключевые файлы проекта:  
 - mainprog.py - код работы РТК
+- image_processor.py - код обработки изображения
 - MyProject.ttt - сцена с РТК для симулятора
 - smach - каталог с библиотекой
 - remoteApi.so - библиотека remoteApi для Ubuntu 20.04  
