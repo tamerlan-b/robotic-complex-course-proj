@@ -7,6 +7,7 @@
 Для работы симулятора потребуются библиотеки:  
 - smach
 - scipy
+- opencv
 - подходящая библиотека с remote API: "remoteApi.dll" (Windows), "remoteApi.dylib" (Mac) или "remoteApi.so" (Linux)
 
 Чтобы установить smach, заходим в каталог smach из командной строки и выполняем инструкцию:  
@@ -15,8 +16,9 @@ python setup.py install
 ```
 На Linux может потребоваться `sudo`.  
 
-Библиотека scipy устанавливается через pip:  
+Библиотеки opencv и scipy устанавливаются через pip:  
 ```bash
+pip install opencv-python
 pip install scipy
 ```
 
