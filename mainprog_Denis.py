@@ -26,7 +26,6 @@ else:
 ang_grapp = ['/NiryoOne/Joint/Link/Joint/Link/Joint/Link/Joint/Link/Joint/Link/Joint/Link/connection/NiryoLGripper', '/NiryoOne/Joint/Link/Joint/Link/Joint/Link/Joint/Link/Joint/Link/Joint/Link/connection']
 # обращение к схвату
 
-
 ang_joint = [[], []]
 
 ang_joint[0] = ['/NiryoOne/Joint',
@@ -41,8 +40,9 @@ ang_joint[1] = ['/youBot/Joint/rollingJoint_fl',
                 '/youBot/rollingJoint_rl',
                 '/youBot/rollingJoint_rr'] # колёса YouBot 1,2,3,4 соответственно
 
+
 d = np.array([0.183, 0, 0, 0.2215, 0, 0.134]) # параметры алгоритма Денавита-Хартенберга
-a = np.array([0, 0.21, 0.03, 0, 0, 0.012])
+a = np.array([0, 0.21, 0.03, 0, 0, 0.01])
 alpha = np.array([-pi / 2, 0, -pi / 2, pi / 2, -pi / 2, 0])
 th0 = np.array([0, -pi/2, 0, 0, 0, 0]) # начальные условия для минимизации
 
@@ -52,6 +52,7 @@ right = [0, -1, -1, 0]
 back = [-1, 0, 0, 1]
 
 err1, proximity_sensor = sim.simxGetObjectHandle(clientID, '/conveyor/_sensor', sim.simx_opmode_oneshot_wait)
+
 
 # err2, j2 = sim.simxGetObjectHandle(clientID, ang_joint[i][1], sim.simx_opmode_oneshot_wait)
 # err3, j3 = sim.simxGetObjectHandle(clientID, ang_joint[i][2], sim.simx_opmode_oneshot_wait)
@@ -84,7 +85,7 @@ def grap(): # дексриптор для схвата
         gripperName = sim.simxGetObject
 
 
-def dhNiryo(TH): # матрицы алгоритма ДХ
+def dhkin(TH): # матрицы алгоритма ДХ
     T = np.array([[cos(TH[0]), -sin(TH[0]) * cos(alpha[0]), sin(TH[0]) * sin(alpha[0]), a[0] * cos(TH[0])],
                   [sin(TH[0]), cos(TH[0]) * cos(alpha[0]), -cos(TH[0]) * sin(alpha[0]), a[0] * sin(TH[0])],
                   [0, sin(alpha[0]), cos(alpha[0]), d[0]],
@@ -99,7 +100,7 @@ def dhNiryo(TH): # матрицы алгоритма ДХ
 
 
 def errmin(TH, td): # функция ошибки для задачи минимизации, td матрица однородного
-    T = dhNiryo(TH) # преобразования для желаемого положения
+    T = dhkin(TH) # преобразования для желаемого положения
     err = 0
     for i in range(2):
         for j in range(2):
@@ -129,24 +130,14 @@ def invkinNyryo(x, y, z, e): # обратная задача кинематик�
 #     return dfi
 
 
-def invYouBotVel(VL, VT, Om):
-    l = 0.15
-    h = 0.471/2
-    R = 0.05
-    H = np.array([[1, -1, -l-h], [1, 1, l+h], [1, 1, -l-h], [1, -1, l+h]])/R
-    v = np.array([VL, VT, Om])
-    dfi = np.dot(H, v)
-    return dfi
-
-
-def invYouBotPos(x, y, rot, t):
-    l = 0.15
-    h = 0.471/2
-    R = 0.05
-    H = np.array([[1, -1, -l-h], [1, 1, l+h], [1, 1, -l-h], [1, -1, l+h]])/R
-    v = np.array([x/t, y/t, rot/t])
-    dfi = np.dot(H, v)
-    return dfi
+# def YouBot_Moves(dfi):
+#     err = []
+#     j = []
+#     for u in range(4):
+#         a, b = sim.simxGetObjectHandle(clientID, ang_joint[1][u], sim.simx_opmode_oneshot_wait)
+#         err.append(a)
+#         j.append(b)
+#         sim.simxSetJointTargetVelocity(clientID, j[u], dfi[u], sim.simx_opmode_streaming)
 
 
 def YouBot_Moves(fi):
@@ -156,7 +147,111 @@ def YouBot_Moves(fi):
         a, b = sim.simxGetObjectHandle(clientID, ang_joint[1][u], sim.simx_opmode_oneshot_wait)
         err.append(a)
         j.append(b)
-        sim.simxSetJointTargetVelocity(clientID, j[u], fi[u], sim.simx_opmode_streaming)
+        sim.simxSetJointTargetPosition(clientID, j[u], fi[u], sim.simx_opmode_streaming)
+
+
+def YouBot_Real():
+    j = []
+    fireal = []
+    for u in range(4):
+        a, b = sim.simxGetObjectHandle(clientID, ang_joint[1][u], sim.simx_opmode_oneshot_wait)
+        j.append(b)
+        a1, b1 = sim.simxGetJointPosition(clientID, j[u], sim.simx_opmode_oneshot_wait)
+        b1 = b1 + pi
+        fireal.append(b1)
+    return fireal
+
+
+def invYouBotVel(VL, VT, Om):
+    l = 0.317/2
+    h = 0.456/2
+    R = 0.05
+    H = np.array([[1, -1, -l-h], [1, 1, l+h], [1, 1, -l-h], [1, -1, l+h]])/R
+    fireal0 = YouBot_Real()
+    v = np.array([VL, VT, Om])
+    dfi = np.dot(H, v)
+    YouBot_Moves(dfi)
+    time.sleep(0.05)
+    for i in range(200):
+        fireal1 = YouBot_Real()
+        fios1 = [[], [], [], []]
+        for j in range(4):
+            if abs(fireal1[j] - fireal0[j]) < 3: fios1[j] = fireal1[j] - fireal0[j]
+            elif fireal1[j] > fireal0[j]: fios1[j] = -fireal0[j] - 2*pi + fireal1[j]
+            elif fireal1[j] < fireal0[j]: fios1[j] = -fireal0[j] + 2*pi + fireal1[j]
+        v = np.array([VL, VT, Om])
+        dfi = np.dot(H, v)
+        YouBot_Moves(dfi)
+        print('------dfi', dfi)
+        print('fr0', fireal0)
+        print('fr1', fireal1)
+        fireal0 = fireal1
+        print(fios1)
+        time.sleep(0.05)
+    return dfi
+
+
+# def invYouBotPos(x, y, rot, t):
+#     l = 0.317/2
+#     h = 0.456/2
+#     R = 0.05
+#     H = np.array([[1, -1, -l-h], [1, 1, l+h], [1, 1, -l-h], [1, -1, l+h]])/R
+#     fireal0 = YouBot_Real()
+#     v = np.array([x/t, y/t, rot/t])
+#     dfi = np.dot(H, v)
+#     YouBot_Moves(dfi)
+#     time.sleep(0.05)
+#     for i in range(200):
+#         fireal1 = YouBot_Real()
+#         fios1 = [[], [], [], []]
+#         for j in range(4):
+#             if abs(fireal1[j] - fireal0[j]) < 3: fios1[j] = fireal1[j] - fireal0[j]
+#             elif fireal1[j] > fireal0[j]: fios1[j] = -fireal0[j] - 2*pi + fireal1[j]
+#             elif fireal1[j] < fireal0[j]: fios1[j] = -fireal0[j] + 2*pi + fireal1[j]
+#         v = np.array([x/t, y/t, rot/t])
+#         dfi = np.dot(H, v)
+#         YouBot_Moves(dfi)
+#         print('------dfi', dfi)
+#         print('fr0', fireal0)
+#         print('fr1', fireal1)
+#         fireal0 = fireal1
+#         print(fios1)
+#         time.sleep(0.05)
+#     return dfi
+
+
+def invYouBotPos(x, y, rot, t):
+    l = 0.317/2
+    h = 0.456/2
+    R = 0.05
+    fi = [0, 0, 0, 0]
+    H = np.array([[1, -1, -l-h], [1, 1, l+h], [1, 1, -l-h], [1, -1, l+h]])/R
+    fireal0 = YouBot_Real()
+    v = np.array([x/t, y/t, rot/t])
+    dfi = np.dot(H, v)
+    fi = fi + dfi*0.05
+    YouBot_Moves(fi)
+    time.sleep(0.05)
+    for i in range(200):
+        fireal1 = YouBot_Real()
+        fios1 = [[], [], [], []]
+        for j in range(4):
+            if abs(fireal1[j] - fireal0[j]) < 3: fios1[j] = fireal1[j] - fireal0[j]
+            elif fireal1[j] > fireal0[j]: fios1[j] = -fireal0[j] - 2*pi + fireal1[j]
+            elif fireal1[j] < fireal0[j]: fios1[j] = -fireal0[j] + 2*pi + fireal1[j]
+        v = np.array([x/t, y/t, rot/t])
+        dfi = np.dot(H, v)
+        fi = fi + dfi*0.05
+        YouBot_Moves(fi)
+        print('------dfi', dfi)
+        print('fi', fi)
+        print('fr0', fireal0)
+        print('fr1', fireal1)
+        fireal0 = fireal1
+        print(fios1)
+        time.sleep(0.05)
+    return dfi
+
 
 
 def conveyor():
@@ -179,7 +274,7 @@ class State2(smach.State): # подойти к конвейеру
         smach.State.__init__(self, outcomes=["outcome2"])
 
     def execute(self, ud):
-        pose_arr = np.array(invkinNyryo(0.35, 0, 0.11, right), float)
+        pose_arr = np.array(invkinNyryo(0.345, 0, 0.11, right))
         Manip_Moves(pose_arr, 0, 6)
         time.sleep(3)
         return 'outcome2'
@@ -234,7 +329,6 @@ class State7(smach.State): # вернуться в начальное полож
     def execute(self, ud):
         pose_arr = np.array([0, 0, 0, 0, 0, 0], float)
         Manip_Moves(pose_arr, 0, 5)
-        time.sleep(3)
         return 'outcome7'
 
 
@@ -243,17 +337,14 @@ class State8(smach.State): # YouBot
         smach.State.__init__(self, outcomes=["outcome8"])
 
     def execute(self, ud):
-        YouBot_Moves(invYouBotPos(-1, 0, 2, 5))
-        time.sleep(5)
-        YouBot_Moves(invYouBotPos(1, 0, 0, 5))
-        time.sleep(5)
-        YouBot_Moves(invYouBotPos(0, 0, 0, 1))
+        YouBot_Moves(invYouBotPos(0, 0.5, 0, 100))
+        YouBot_Moves(invYouBotPos(0, 0, 0, 2))
         return 'outcome8'
 
 
 
 def main():
-    sm = smach.StateMachine(outcomes=['outcome2'])
+    sm = smach.StateMachine(outcomes=['outcome1'])
     with sm:  # добавление состояний и связей
         # smach.StateMachine.add('State1', State1(), transitions={'outcome1': 'State2'})
         # smach.StateMachine.add('State2', State2(), transitions={'outcome2': 'State3'})
@@ -261,8 +352,8 @@ def main():
         # smach.StateMachine.add('State4', State4(), transitions={'outcome4': 'State5'})
         # smach.StateMachine.add('State5', State5(), transitions={'outcome5': 'State6'})
         # smach.StateMachine.add('State6', State6(), transitions={'outcome6': 'State7'})
-        # smach.StateMachine.add('State7', State7(), transitions={'outcome7': 'State8'})
-        smach.StateMachine.add('State8', State8(), transitions={'outcome8': 'State8'})
+        smach.StateMachine.add('State7', State7(), transitions={'outcome7': 'State8'})
+        smach.StateMachine.add('State8', State8(), transitions={'outcome8': 'State7'})
         sm.execute()  # запуск машины состояний
 
 
