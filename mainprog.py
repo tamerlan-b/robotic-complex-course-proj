@@ -5,7 +5,9 @@ import smach
 from scipy.optimize import minimize, Bounds
 from numpy import sin, cos, pi
 import numpy as np
+import cv2
 
+from image_processor import ImageProcessor
 # ---------------------------------------
 # ----------СВЯЗЬ С sim-----------------
 # ---------------------------------------
@@ -47,6 +49,10 @@ forward = [1, 0, 0, -1] # команды для ориентации схват�
 left = [0, 1, 1, 0]
 right = [0, -1, -1, 0]
 back = [-1, 0, 0, 1]
+
+
+# Получаем объект камеры из симулятора
+_, conv_cam_handle = sim.simxGetObjectHandle(clientID,'conveyor_camera',sim.simx_opmode_oneshot_wait)
 
 # err2, j2 = sim.simxGetObjectHandle(clientID, ang_joint[i][1], sim.simx_opmode_oneshot_wait)
 # err3, j3 = sim.simxGetObjectHandle(clientID, ang_joint[i][2], sim.simx_opmode_oneshot_wait)
@@ -186,6 +192,17 @@ class State6(smach.State): # вернуться в начальное полож
         time.sleep(3)
         return 'outcome6'
 
+# Получает RGB-изображение с камеры
+def get_image(cam_handle, clientID):
+    errorCode,resolution,image=sim.simxGetVisionSensorImage(clientID,cam_handle,0,sim.simx_opmode_streaming)
+    if len(image) > 0:
+        image = np.array(image,dtype=np.dtype('uint8'))
+        image = np.reshape(image,(resolution[1],resolution[0],3))
+        # Переводим изображение в RGB
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return image
+    else:
+        return np.zeros((256, 256, 3))
 
 def main():
     sm = smach.StateMachine(outcomes=['outcome2'])
@@ -200,4 +217,18 @@ def main():
 
 
 if __name__ == '__main__':
+    # Подключение СТЗ
+    # errorcode,cam_handle = sim.simxGetObjectHandle(clientID,'conveyor_camera',sim.simx_opmode_oneshot_wait)
+    # try:
+    #     while sim.simxGetConnectionId(clientID) > -1:
+    #         image = get_image(conv_cam_handle, clientID)
+    #         centers = ImageProcessor.findObjects(image)
+    #         image = ImageProcessor.drawCenters(image, centers)           
+    #         cv2.imshow("Conveyor Image", image)
+    #         cv2.waitKey(10)
+    # except KeyboardInterrupt:   #Checks if ctrl+c is pressed 
+    #     pass
+    # finally:
+    #     cv2.destroyAllWindows()
+
     main()
