@@ -134,6 +134,24 @@ class State1(smach.State): # подойти к конвейеру
 
     def execute(self, ud):
         Conveyor_Moves(1)
+        
+        # Получаем координаты кубика 
+        # cubes = []
+        # errorcode,cam_handle = sim.simxGetObjectHandle(clientID,'conveyor_camera',sim.simx_opmode_oneshot_wait)
+        # while(len(cubes) == 0):
+        #     image = get_image(conv_cam_handle, clientID)
+        #     # Получаем центры объектов
+        #     centers = ImageProcessor.findObjects(image)
+        #     # Переводим центры в мировую СК
+        #     w_centers = [pixel_to_world(c) for c in centers]
+        #     # Переводим центры в СК манипулятора
+        #     cubes = [world_to_manip(c) for c in w_centers]
+        
+        # # И передаем их мануипулятору
+        # cube = cubes[0]
+        # print("Cube coords: ", cube)
+        # pose_arr = np.array(invkinNyryo(cube[0], cube[1], cube[2], right), float)
+        
         pose_arr = np.array(invkinNyryo(0.35, 0, 0.11, right), float)
         Manip_Moves(pose_arr, 0, 6)
         time.sleep(3)
@@ -200,9 +218,34 @@ def get_image(cam_handle, clientID):
         image = np.reshape(image,(resolution[1],resolution[0],3))
         # Переводим изображение в RGB
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        print(resolution)
         return image
     else:
         return np.zeros((256, 256, 3))
+
+def pixel_to_world(pixel_pt):
+    coeff = 0.000621094
+    shift_x = -0.578
+    shift_y = -0.27
+
+    u,v = pixel_pt
+
+    wx = shift_x + u * coeff
+    wy = shift_y - v * coeff
+    wz = 0.1
+
+    return [wx, wy, wz]
+
+def world_to_manip(pt):
+    shift_x = -0.35
+    shift_y = -0.7
+    shift_z = 0.05
+    wx,wy,wz = pt
+    mx = wx - shift_x
+    my = wy - shift_y
+    mz = wz - shift_z
+    return [mx,my,mz]
+    
 
 def main():
     sm = smach.StateMachine(outcomes=['outcome2'])
@@ -222,8 +265,23 @@ if __name__ == '__main__':
     # try:
     #     while sim.simxGetConnectionId(clientID) > -1:
     #         image = get_image(conv_cam_handle, clientID)
+    #         # Получаем центры объектов
     #         centers = ImageProcessor.findObjects(image)
-    #         image = ImageProcessor.drawCenters(image, centers)           
+    #         # Переводим центры в мировую СК
+    #         w_centers = [pixel_to_world(c) for c in centers]
+    #         # Переводим центры в СК манипулятора
+    #         m_centers = [world_to_manip(c) for c in w_centers]
+    #         print(w_centers)
+    #         print(m_centers)
+
+    #         # for i,c in enumerate(w_centers):
+    #         #     cv2.circle(image, (centers[i][0], centers[i][1]), 7, (0, 0, 0), -1)
+    #         #     # text = f"(U,V) = ({c[0]}, {c[1]})"
+    #         #     text = f"(x,y,z) = ({c[0]}{c[1]}{c[2]})"
+    #         #     text_pos = (centers[i][0] - 30, centers[i][1] - 30)
+    #         #     cv2.putText(image, text, text_pos, cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 2)
+
+    #         # image = ImageProcessor.drawCenters(image, centers)           
     #         cv2.imshow("Conveyor Image", image)
     #         cv2.waitKey(10)
     # except KeyboardInterrupt:   #Checks if ctrl+c is pressed 
