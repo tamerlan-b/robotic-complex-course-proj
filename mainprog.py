@@ -217,4 +217,18 @@ def main():
 
 
 if __name__ == '__main__':
+    # Подключение СТЗ
+    # errorcode,cam_handle = sim.simxGetObjectHandle(clientID,'conveyor_camera',sim.simx_opmode_oneshot_wait)
+    # try:
+    #     while sim.simxGetConnectionId(clientID) > -1:
+    #         image = get_image(conv_cam_handle, clientID)
+    #         centers = ImageProcessor.findObjects(image)
+    #         image = ImageProcessor.drawCenters(image, centers)           
+    #         cv2.imshow("Conveyor Image", image)
+    #         cv2.waitKey(10)
+    # except KeyboardInterrupt:   #Checks if ctrl+c is pressed 
+    #     pass
+    # finally:
+    #     cv2.destroyAllWindows()
+
     main()
