@@ -2,7 +2,7 @@ import sim
 import sys
 import time
 import smach
-from scipy.optimize import minimize, Bounds
+from scipy.optimize import minimize, Bounds, basinhopping
 from numpy import sin, cos, pi
 from math import atan2
 import numpy as np
@@ -110,6 +110,8 @@ def invkinNyryo(x, y, z, e): # обратная задача кинематик�
     exx, exy, eyx, eyy = e
     Td = [[exx, eyx, 0, x], [exy, eyy, 0, y], [0, 0, -1, z]]
     bnds = Bounds([-35*pi/36, -2.21133, -pi/2, -35*pi/36, -5*pi/9, -2.57436], [35*pi/36, 0, 4*pi/9, 35*pi/36, 11*pi/18, 2.57436])
+    minimizer_kwargs = {"args":(Td,)}
+    res = basinhopping(errmin,th0, niter=10, T=0.1, minimizer_kwargs=minimizer_kwargs)
     res = minimize(errmin, th0, args=Td, method='Nelder-Mead', bounds=bnds, options={'maxiter': 5000, 'maxfev': 8000, 'fatol': 0.00000001, 'disp': False, 'adaptive': True})
     x1, x2, x3, x4, x5, x6 = res.x
     return [x1, -x2-0.5*pi, -x3, x4, -x5, x6]
@@ -207,12 +209,13 @@ er1, descrip_Anker1 = sim.simxGetObjectHandle(clientID, Anker_n[0], sim.simx_opm
 er1, descrip_Anker2 = sim.simxGetObjectHandle(clientID, Anker_n[1], sim.simx_opmode_oneshot_wait)
 ant_n = '/Ant'
 er2, descrip_ant = sim.simxGetObjectHandle(clientID, ant_n, sim.simx_opmode_oneshot_wait)
-print(descrip_Anker1, print(descrip_ant), sep='\n')
-fi1=1.1
+fi1 = 1.1
+
+stMode = 1
 
 def Anker_fi_ang(descrip_Anker):#Получаем угол между передом робота (0 на градусной окружности) и расположением анкера(якоря/маяка), и расстояние между ними
     err1, ank_pos = sim.simxGetObjectPosition(clientID, descrip_Anker, descrip_ant, sim.simx_opmode_oneshot_wait)
-    print(err1, ank_pos)
+    #print('ank_pos ',err1, ank_pos)
     S = (ank_pos[0]**2+ank_pos[1]**2)**0.5
     f1 = atan2(ank_pos[1], ank_pos[0]) * 180 / pi
     if f1 > 0:
@@ -224,47 +227,50 @@ def Anker_fi_ang(descrip_Anker):#Получаем угол между перед
 
 
 # ant_pos = sim.simxSetObjectPosition(clientID,descrip_ant,descrip_ant,ank_pos,sim.simx_opmode_streaming)
-def rote(clientID, rgName, fi): #Отправляем копелии полученный угол и режим ходьбы (стоим/идем)
+def rote(clientID, rgName, fi,stepMode): #Отправляем копелии полученный угол и режим ходьбы (стоим/идем)
     res, retInts, retFloats, retStrings, retBuffer = sim.simxCallScriptFunction(clientID, rgName, \
     sim.sim_scripttype_childscript,'AntRotate', [stepMode], [fi], [], b'', sim.simx_opmode_blocking)
 
-stepMode = 1
 
-def Movement_bot1():
+def Stop_Walk(fi1,stepMode):
+    rote(clientID, 'Ant', fi1, stepMode)
+    print('Movement_bot1 is end')
+
+def Movement_bot1(stepMode):
+    print('Movement_bot1 is start')
+    fi1, Ro = Anker_fi_ang(descrip_Anker1)
     while True:
         fi1, Ro = Anker_fi_ang(descrip_Anker1)
         print(fi1, Ro)
-        if Ro < 0.055:
-            stepMode = 0
-            print('stepmode = ',stepMode,'; fi1 = ',fi1,'; Ro = ',Ro, sep='')
-            fi1 = 0
-            rote(clientID, 'Ant')
+        if Ro <= 0.1:
+            Stop_Walk(0,0)
             break
         if abs(fi1) < 5:
             fi1 = 0
-        rote(clientID, 'Ant',fi1)
-        if Ro >= 0.1:
+        rote(clientID, 'Ant',fi1, stepMode)
+        if Ro >= 0.15:
             time.sleep(1)
         else:
             time.sleep(0.1)
-
-def Movement_bot2():
+def Movement_bot2(stepMode):
+    print('Movement_bot2 is start')
+    fi1, Ro = Anker_fi_ang(descrip_Anker2)
     while True:
         fi1, Ro = Anker_fi_ang(descrip_Anker2)
         print(fi1, Ro)
-        if Ro < 0.055:
-            stepMode = 0
-            print('stepmode = ',stepMode,'; fi1 = ',fi1,'; Ro = ',Ro, sep='')
-            fi1 = 0
-            rote(clientID, 'Ant')
+        if Ro <= 0.1:
+            Stop_Walk(0,0)
             break
-        if abs(fi1) < 5:
+        if abs(fi1) < 10:
             fi1 = 0
-        rote(clientID, 'Ant',fi1)
-        if Ro >= 0.1:
-            time.sleep(1)
+        rote(clientID, 'Ant',fi1, stepMode)
+        if Ro >= 0.15:
+            time.sleep(2)
         else:
             time.sleep(0.1)
+
+#Movement_bot1(1)
+#Movement_bot2(1)
 
 # //////////////////////СОСТОЯНИЯ/////////////////
 
